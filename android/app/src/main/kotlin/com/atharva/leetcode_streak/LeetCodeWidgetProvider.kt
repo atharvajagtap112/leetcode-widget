@@ -1,4 +1,4 @@
-package com.example.leetcode_streak
+package com.atharva.leetcode_streak
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
@@ -6,7 +6,7 @@ import android.content.SharedPreferences
 import android.graphics.BitmapFactory
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
-import com.example.leetcode_streak.R
+import com.atharva.leetcode_streak.R
 import android.net.Uri
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 

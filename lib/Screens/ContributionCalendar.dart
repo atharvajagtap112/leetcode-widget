@@ -25,7 +25,7 @@ class ContributionCalendar extends StatelessWidget {
   final int daysBack; // default 365 (past one year)
 
   const ContributionCalendar({
-    Key? key,
+    super.key,
     required this.data,
     this.mode = CalendarViewMode.rollingPastYear,
     this.maxCellSizePx = 10.0,
@@ -38,7 +38,7 @@ class ContributionCalendar extends StatelessWidget {
     this.verticalPadding = 4.0,
     this.endUtcOverride,
     this.daysBack = 365,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

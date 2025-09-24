@@ -59,7 +59,7 @@ query UserCalendars(\$username: String!, \$y1: Int!, \$y0: Int!) {
       if (matched == null) return null;
 
       // Decode both calendars (they come back as JSON string maps: { "ts": count, ... })
-      Map<String, int> _decodeCal(dynamic node) {
+      Map<String, int> decodeCal(dynamic node) {
         if (node == null) return {};
         final sc = node['submissionCalendar'];
         if (sc is String && sc.isNotEmpty) {
@@ -69,8 +69,8 @@ query UserCalendars(\$username: String!, \$y1: Int!, \$y0: Int!) {
         return {};
       }
 
-      final cal0 = _decodeCal(matched['y0']);
-      final cal1 = _decodeCal(matched['y1']);
+      final cal0 = decodeCal(matched['y0']);
+      final cal1 = decodeCal(matched['y1']);
 
       // Merge and filter to last 365 days
       final merged = <String, int>{}..addAll(cal0)..addAll(cal1);

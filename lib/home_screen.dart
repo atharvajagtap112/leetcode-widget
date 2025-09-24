@@ -1,16 +1,22 @@
-import 'dart:convert'; // reserved for future use
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // MethodChannel for pinning
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:leetcode_streak/Config/HomeWidgetConfig.dart';
+import 'package:leetcode_streak/Config/adHelper.dart';
 import 'package:leetcode_streak/Model/LeetcodeData.dart';
 import 'package:leetcode_streak/Screens/ContributionCalendar.dart';
 import 'package:leetcode_streak/Screens/username_Input.dart';
 import 'package:leetcode_streak/Services/LeetCodeApi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  final bool launchedFromWidget;
+  final VoidCallback? onRefreshDone;
+
+  const HomeScreen({super.key, required this.launchedFromWidget, this.onRefreshDone});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -23,11 +29,28 @@ class _HomeScreenState extends State<HomeScreen> {
   LeetCodeData? _leetCodeData;
   bool _isLoading = false;
   String? _errorMessage;
-
+  BannerAd? bannerAd;
   @override
   void initState() {
     super.initState();
     _loadSavedUsername();
+
+    BannerAd(
+      size: AdSize.banner, 
+      adUnitId: AdHelper.bannerAdUnitId,
+       
+        request: AdRequest(),
+          listener: BannerAdListener(
+          onAdLoaded: (ad) {
+            bannerAd=ad as BannerAd;
+            setState(() {});
+          },
+          onAdFailedToLoad: (ad, error) {
+            ad.dispose();
+            debugPrint('Ad load failed (code=${error.code} message=${error.message})');
+          },
+          ),
+        ).load();
   }
 
   Future<void> _loadSavedUsername() async {
@@ -55,6 +78,27 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _leetCodeData = data;
         _isLoading = false;
+          _errorMessage = null;
+
+          if(bannerAd==null){
+            
+          BannerAd(
+      size: AdSize.banner, 
+      adUnitId: AdHelper.bannerAdUnitId,
+       
+        request: AdRequest(),
+          listener: BannerAdListener(
+          onAdLoaded: (ad) {
+            bannerAd=ad as BannerAd;
+            setState(() {});
+          },
+          onAdFailedToLoad: (ad, error) {
+            ad.dispose();
+            debugPrint('Ad load failed (code=${error.code} message=${error.message})');
+          },
+          ),
+        ).load();
+          }
       });
 
       await _saveUsername(username);
@@ -63,12 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Optional: render and push a fresh image to the widget
         await _updateWidgetImage(data);
       }
-      else{
-        setState(() {
-        _errorMessage = 'User not found or error fetching data';
-        _isLoading = false;
-      });
-      }
+     
     } catch (_) {
       setState(() {
         _errorMessage = 'User not found or error fetching data';
@@ -89,6 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ContributionCalendar(data: data),
       
     );
+     widget.onRefreshDone?.call();
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Widget image updated')),
@@ -147,90 +188,104 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF151A1E), // Dark slate color in black family
         elevation: 0,
-        title: const Text('LeetCode Streak Widget'),
+        title: const Text('LeetStreak'),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          if (_usernameController.text.isNotEmpty) {
-            await _fetchLeetCodeData(_usernameController.text);
-          }
-        },
-        // No global horizontal padding so calendar can be edge-to-edge.
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // Username + Fetch (padded section)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: _UsernameCard(
-                controller: _usernameController,
-                onSubmit: _fetchLeetCodeData,
-                cardColor: card,
-              ),
-            ),
+      body: Stack(
+        children: [
+         
+          ListView(
+            padding: EdgeInsets.zero,
+            children: [
+                     if(bannerAd!=null) 
+                Padding(
+               padding: const EdgeInsets.all(  10.0),
+               child: SizedBox(
+                 
+                 width: bannerAd!.size.width.toDouble(),
+                 height: bannerAd!.size.height.toDouble(),
+                 child: AdWidget(ad: bannerAd!), 
+               ),
+             ),
+           
 
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_errorMessage != null)
+              // Username + Fetch (padded section)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: _ErrorCard(message: _errorMessage!, cardColor: card),
-              )
-            else if (_leetCodeData != null) ...[
-              // Stats (padded)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: _StatsRow(data: _leetCodeData!, cardColor: card),
-              ),
-
-              // Calendar (FULL BLEED — no padding)
-              const SizedBox(height: 8),
-              _FullBleedCalendar(
-                child: GestureDetector(
-                  onTap: () {
-                    if (_usernameController.text.isNotEmpty) {
-                      _fetchLeetCodeData(_usernameController.text);
-                    }
-                  },
-                  child: ContributionCalendar(data: _leetCodeData!),
+                padding: const EdgeInsets.fromLTRB(16, 5, 16, 8),
+                child: _UsernameCard(
+                  controller: _usernameController,
+                  onSubmit: _fetchLeetCodeData,
+                  cardColor: card,
                 ),
               ),
-              const SizedBox(height: 8),
 
-              // Actions (only visible when data exists)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                child: Row(
-                  children: [
-                  
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.white24),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: _ErrorCard(message: _errorMessage!, cardColor: card),
+                )
+              else if (_leetCodeData != null) ...[
+                // Stats (padded)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: _StatsRow(data: _leetCodeData!, cardColor: card),
+                ),
+          
+                // Calendar (FULL BLEED — no padding)
+                const SizedBox(height: 8),
+                _FullBleedCalendar(
+                  child: GestureDetector(
+                    onTap: () {
+                      if (_usernameController.text.isNotEmpty) {
+                        _fetchLeetCodeData(_usernameController.text);
+                      }
+                    },
+                    child: ContributionCalendar(data: _leetCodeData!),
+                  ),
+                ),
+                const SizedBox(height: 8),
+          
+                Center(child: Text("Tap on the calendar to refresh", style: TextStyle(fontSize: 12),)),
+                 const SizedBox(height: 8),
+          
+          
+                // Actions (only visible when data exists)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: Row(
+                    children: [
+                    
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.white24),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
+                          icon: const Icon(Icons.push_pin_outlined),
+                          label: const Text('Add to Home Screen'),
+                          onPressed: _pinWidgetToHomeScreen,
                         ),
-                        icon: const Icon(Icons.push_pin_outlined),
-                        label: const Text('Add to Home Screen'),
-                        onPressed: _pinWidgetToHomeScreen,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
+          
+              const SizedBox(height: 8),
             ],
-
-            const SizedBox(height: 8),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -248,11 +303,11 @@ class _UsernameCard extends StatelessWidget {
   final Color cardColor;
 
   const _UsernameCard({
-    Key? key,
+    super.key,
     required this.controller,
     required this.onSubmit,
     required this.cardColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +317,7 @@ class _UsernameCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white10),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -280,19 +335,15 @@ class _UsernameCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               ),
-              icon: const Icon(Icons.search),
-              label: const Text('Fetch'),
+              icon: const Icon(Icons.search, color: Colors.white),
+              label: const Text('Fetch',
+              style: TextStyle(color: Colors.white)
+              ),
               onPressed: () => onSubmit(controller.text),
             ),
           ),
           const SizedBox(height: 6),
-          const Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Pull down to refresh',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ),
+          
         ],
       ),
     );
@@ -304,10 +355,10 @@ class _StatsRow extends StatelessWidget {
   final Color cardColor;
 
   const _StatsRow({
-    Key? key,
+    super.key,
     required this.data,
     required this.cardColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -333,23 +384,19 @@ class _StatCard extends StatelessWidget {
   final Color color;
 
   const _StatCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.value,
     required this.color,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
      
       duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
-      ),
+      padding: const EdgeInsets.all(5),
+      
       child: Row(
         children: [
           Text(title, style: const TextStyle(color: Colors.white70, fontSize: 12)),
@@ -373,7 +420,7 @@ class _StatCard extends StatelessWidget {
 class _FullBleedCalendar extends StatelessWidget {
   final Widget child;
 
-  const _FullBleedCalendar({Key? key, required this.child}) : super(key: key);
+  const _FullBleedCalendar({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -387,10 +434,10 @@ class _ErrorCard extends StatelessWidget {
   final Color cardColor;
 
   const _ErrorCard({
-    Key? key,
+    super.key,
     required this.message,
     required this.cardColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

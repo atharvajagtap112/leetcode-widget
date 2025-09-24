@@ -1,4 +1,4 @@
-package com.example.leetcode_streak
+package com.atharva.leetcode_streak
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager

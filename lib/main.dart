@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:leetcode_streak/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
@@ -6,15 +8,18 @@ import 'package:home_widget/home_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+   final Uri? intialUri =await HomeWidget.initiallyLaunchedFromHomeWidget();
+    await MobileAds.instance.initialize();
+  final bool lauchedFromWidget= intialUri?.host=="refresh"; 
 
-  runApp(const LeetCodeApp());
+  runApp(LeetCodeApp(lauchedFromWidget: lauchedFromWidget));
 }
 
-// Called when the widget is updated
 
 
 class LeetCodeApp extends StatelessWidget {
-  const LeetCodeApp({Key? key}) : super(key: key);
+  final bool lauchedFromWidget;
+  const LeetCodeApp({super.key, required this.lauchedFromWidget});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +32,14 @@ class LeetCodeApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF121212),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home:  HomeScreen(
+        launchedFromWidget: lauchedFromWidget,
+        onRefreshDone: (){
+          if(lauchedFromWidget){
+            SystemNavigator.pop();
+          }
+        },
+      ),
     );
   }
 }
