@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // MethodChannel for pinning
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -10,7 +8,6 @@ import 'package:leetcode_streak/Screens/ContributionCalendar.dart';
 import 'package:leetcode_streak/Screens/username_Input.dart';
 import 'package:leetcode_streak/Services/LeetCodeApi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 
 class HomeScreen extends StatefulWidget {
   final bool launchedFromWidget;
@@ -24,41 +21,54 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const MethodChannel _platform = MethodChannel('leetcode_streak/widgets');
+  static const _prefsUsernameKey = 'username';
+  static const _prefsDaysBackKey = 'daysBack';
 
   final TextEditingController _usernameController = TextEditingController();
   LeetCodeData? _leetCodeData;
   bool _isLoading = false;
   String? _errorMessage;
   BannerAd? bannerAd;
+
+  // New: daysBack preference (default 365)
+  int _daysBack = 365;
+
   @override
   void initState() {
     super.initState();
-    _loadSavedUsername();
+    _loadPrefsAndMaybeFetch();
 
     BannerAd(
-      size: AdSize.banner, 
+      size: AdSize.banner,
       adUnitId: AdHelper.bannerAdUnitId,
-       
-        request: AdRequest(),
-          listener: BannerAdListener(
-          onAdLoaded: (ad) {
-            bannerAd=ad as BannerAd;
-            setState(() {});
-          },
-          onAdFailedToLoad: (ad, error) {
-            ad.dispose();
-            debugPrint('Ad load failed (code=${error.code} message=${error.message})');
-          },
-          ),
-        ).load();
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          bannerAd = ad as BannerAd;
+          setState(() {});
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          debugPrint('Ad load failed (code=${error.code} message=${error.message})');
+        },
+      ),
+    ).load();
   }
 
-  Future<void> _loadSavedUsername() async {
+  Future<void> _loadPrefsAndMaybeFetch() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedUsername = prefs.getString('username');
+    final savedUsername = prefs.getString(_prefsUsernameKey);
+    final savedDaysBack = prefs.getInt(_prefsDaysBackKey);
+
+    if (savedDaysBack != null && savedDaysBack > 0) {
+      _daysBack = savedDaysBack;
+    }
+
     if (savedUsername != null && savedUsername.isNotEmpty) {
       _usernameController.text = savedUsername;
       _fetchLeetCodeData(savedUsername);
+    } else {
+      setState(() {}); // ensure selector shows the current state even if no username yet
     }
   }
 
@@ -78,36 +88,32 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _leetCodeData = data;
         _isLoading = false;
-          _errorMessage = null;
+        _errorMessage = null;
 
-          if(bannerAd==null){
-            
+        if (bannerAd == null) {
           BannerAd(
-      size: AdSize.banner, 
-      adUnitId: AdHelper.bannerAdUnitId,
-       
-        request: AdRequest(),
-          listener: BannerAdListener(
-          onAdLoaded: (ad) {
-            bannerAd=ad as BannerAd;
-            setState(() {});
-          },
-          onAdFailedToLoad: (ad, error) {
-            ad.dispose();
-            debugPrint('Ad load failed (code=${error.code} message=${error.message})');
-          },
-          ),
-        ).load();
-          }
+            size: AdSize.banner,
+            adUnitId: AdHelper.bannerAdUnitId,
+            request: const AdRequest(),
+            listener: BannerAdListener(
+              onAdLoaded: (ad) {
+                bannerAd = ad as BannerAd;
+                setState(() {});
+              },
+              onAdFailedToLoad: (ad, error) {
+                ad.dispose();
+                debugPrint('Ad load failed (code=${error.code} message=${error.message})');
+              },
+            ),
+          ).load();
+        }
       });
 
       await _saveUsername(username);
 
       if (data != null && mounted) {
-        // Optional: render and push a fresh image to the widget
         await _updateWidgetImage(data);
       }
-     
     } catch (_) {
       setState(() {
         _errorMessage = 'User not found or error fetching data';
@@ -118,17 +124,66 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _saveUsername(String username) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', username);
+    await prefs.setString(_prefsUsernameKey, username);
+  }
+
+  Future<void> _saveDaysBack(int daysBack) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefsDaysBackKey, daysBack);
+  }
+
+  // Heuristic visuals based on selected range
+  _CalendarVisuals _visualsForDaysBack(int daysBack) {
+    // 365d: keep tighter cap so all months fit nicely.
+    if (daysBack >= 365) {
+      return const _CalendarVisuals(
+        maxCellSizePx: 10.0,
+        cellPaddingPx: 0.1,
+        colSpacingPx: 1.0,
+        rowSpacingPx: 1.0,
+        monthGapPx: 3.0,
+        radius: 1.0,
+        monthLabelHeight: 14.0,
+        horizontalPadding: 0.0,
+        verticalPadding: 4.0,
+      );
+    }
+    // ~6 months: allow slightly bigger max cells (auto-fit still prevents overflow)
+    return const _CalendarVisuals(
+      radius: 1.5,
+      maxCellSizePx: 8.0,
+      cellPaddingPx: 0.2,
+      colSpacingPx: 1.8,
+      rowSpacingPx: 1.8,
+      monthGapPx: 4.0,
+      monthLabelHeight: 14.0,
+      horizontalPadding: 0.0,
+      verticalPadding: 4.0,
+    );
   }
 
   Future<void> _updateWidgetImage(LeetCodeData data) async {
     await Homewidgetconfig.initialize();
+    final visuals = _visualsForDaysBack(_daysBack);
+
     await Homewidgetconfig.update(
       context,
-      ContributionCalendar(data: data),
-      
+      ContributionCalendar(
+        radius: visuals.radius,
+        data: data,
+        mode: CalendarViewMode.rollingPastYear,
+        daysBack: _daysBack,
+        maxCellSizePx: visuals.maxCellSizePx,
+        cellPaddingPx: visuals.cellPaddingPx,
+        colSpacingPx: visuals.colSpacingPx,
+        rowSpacingPx: visuals.rowSpacingPx,
+        monthGapPx: visuals.monthGapPx,
+        monthLabelHeight: visuals.monthLabelHeight,
+        horizontalPadding: visuals.horizontalPadding,
+        verticalPadding: visuals.verticalPadding,
+      ),
     );
-     widget.onRefreshDone?.call();
+    widget.onRefreshDone?.call();
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
           const SnackBar(content: Text('Pin request sent. Confirm on your home screen.')),
         );
       } else {
-        // Launcher or Android version doesn’t support pinning. Show instructions.
         _showPinInstructions();
       }
     } catch (e) {
@@ -163,9 +217,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       builder: (_) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-        child: Column(
+        child: const Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
+          children: [
             Text('Add widget manually',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
             SizedBox(height: 8),
@@ -183,41 +237,61 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     const bg = Color(0xFF0F1115);
     const card = Color(0xFF151A1E);
-    const brand = Color(0xFF059669);
+
+    final visuals = _visualsForDaysBack(_daysBack);
 
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: const Color(0xFF151A1E), // Dark slate color in black family
+        backgroundColor: const Color(0xFF151A1E),
         elevation: 0,
         title: const Text('LeetStreak'),
       ),
       body: Stack(
         children: [
-         
           ListView(
             padding: EdgeInsets.zero,
             children: [
-                     if(bannerAd!=null) 
+              if (bannerAd != null)
                 Padding(
-               padding: const EdgeInsets.all(  10.0),
-               child: SizedBox(
-                 
-                 width: bannerAd!.size.width.toDouble(),
-                 height: bannerAd!.size.height.toDouble(),
-                 child: AdWidget(ad: bannerAd!), 
-               ),
-             ),
-           
+                  padding: const EdgeInsets.all(10.0),
+                  child: SizedBox(
+                    width: bannerAd!.size.width.toDouble(),
+                    height: bannerAd!.size.height.toDouble(),
+                    child: AdWidget(ad: bannerAd!),
+                  ),
+                ),
+              
 
-              // Username + Fetch (padded section)
+              // Username + Fetch
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 5, 16, 8),
                 child: _UsernameCard(
                   controller: _usernameController,
                   onSubmit: _fetchLeetCodeData,
                   cardColor: card,
+                ),
+              ),
+
+              // New: Range selector
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: _RangeSelectorCard(
+                  cardColor: card,
+                  daysBack: _daysBack,
+                  onChanged: (value) async {
+                    setState(() {
+                      _daysBack = value;
+                    });
+                    await _saveDaysBack(value);
+
+                    // If data already loaded, reflect selection in the pinned widget too
+                    if (_leetCodeData != null && mounted) {
+                      // No fetch needed; calendar will re-render with new daysBack automatically
+                      await _updateWidgetImage(_leetCodeData!);
+                    }
+                  },
                 ),
               ),
 
@@ -232,13 +306,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _ErrorCard(message: _errorMessage!, cardColor: card),
                 )
               else if (_leetCodeData != null) ...[
-                // Stats (padded)
+                // Stats
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                   child: _StatsRow(data: _leetCodeData!, cardColor: card),
                 ),
-          
-                // Calendar (FULL BLEED — no padding)
+
+                // Calendar (full-bleed)
                 const SizedBox(height: 8),
                 _FullBleedCalendar(
                   child: GestureDetector(
@@ -247,21 +321,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         _fetchLeetCodeData(_usernameController.text);
                       }
                     },
-                    child: ContributionCalendar(data: _leetCodeData!),
+                    child: ContributionCalendar(
+                      radius: visuals.radius,
+                      data: _leetCodeData!,
+                      mode: CalendarViewMode.rollingPastYear,
+                      daysBack: _daysBack,
+                      maxCellSizePx: visuals.maxCellSizePx,
+                      cellPaddingPx: visuals.cellPaddingPx,
+                      colSpacingPx: visuals.colSpacingPx,
+                      rowSpacingPx: visuals.rowSpacingPx,
+                      monthGapPx: visuals.monthGapPx,
+                      monthLabelHeight: visuals.monthLabelHeight,
+                      horizontalPadding: visuals.horizontalPadding,
+                      verticalPadding: visuals.verticalPadding,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
-          
-                Center(child: Text("Tap on the calendar to refresh", style: TextStyle(fontSize: 12),)),
-                 const SizedBox(height: 8),
-          
-          
-                // Actions (only visible when data exists)
+
+                const Center(
+                  child: Text(
+                    "Tap on the calendar to refresh",
+                    style: TextStyle(fontSize: 12, color: Colors.white70),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Actions
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   child: Row(
                     children: [
-                    
                       Expanded(
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
@@ -281,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-          
+
               const SizedBox(height: 8),
             ],
           ),
@@ -323,27 +413,88 @@ class _UsernameCard extends StatelessWidget {
         children: [
           UsernameInput(
             controller: controller,
-           
           ),
           const SizedBox(height: 12),
-            SizedBox(
+          SizedBox(
             height: 44,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F1115), // Use your app's dark brand color
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                backgroundColor: const Color(0xFF0F1115),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               icon: const Icon(Icons.search, color: Colors.white),
-              label: const Text('Fetch',
-              style: TextStyle(color: Colors.white)
-              ),
+              label: const Text('Fetch', style: TextStyle(color: Colors.white)),
               onPressed: () => onSubmit(controller.text),
             ),
           ),
           const SizedBox(height: 6),
-          
+        ],
+      ),
+    );
+  }
+}
+
+class _RangeSelectorCard extends StatelessWidget {
+  final Color cardColor;
+  final int daysBack;
+  final ValueChanged<int> onChanged;
+
+  const _RangeSelectorCard({
+    super.key,
+    required this.cardColor,
+    required this.daysBack,
+    required this.onChanged,
+  });
+
+  static const _chipTextStyle = TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600);
+
+  @override
+  Widget build(BuildContext context) {
+    final is365 = daysBack >= 365;
+    final is182 = daysBack == 182;
+   
+
+    Widget buildChip(String label, bool selected, VoidCallback onTap) {
+      return ChoiceChip(
+        label: Text(label, style: _chipTextStyle),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        backgroundColor: const Color(0xFF111418),
+        selectedColor: const Color(0xFF059669),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Range', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              buildChip('1yr', is365, () => onChanged(365)),
+              buildChip('6m', is182, () => onChanged(182)),  
+        
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Your selection is saved automatically.',
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
         ],
       ),
     );
@@ -364,7 +515,6 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = <Widget>[
       _StatCard(title: 'Max streak', value: '${data.streak}', color: cardColor),
-    
     ];
 
     return Row(
@@ -393,10 +543,8 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-     
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.all(5),
-      
       child: Row(
         children: [
           Text(title, style: const TextStyle(color: Colors.white70, fontSize: 12)),
@@ -462,4 +610,30 @@ class _ErrorCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// Tiny holder for calendar visual tweaks per range
+class _CalendarVisuals {
+  final double maxCellSizePx;
+  final double cellPaddingPx;
+  final double colSpacingPx;
+  final double rowSpacingPx;
+  final double monthGapPx;
+  final double monthLabelHeight;
+  final double horizontalPadding;
+  final double verticalPadding;
+  final double radius;
+
+  const _CalendarVisuals({
+    required this.maxCellSizePx,
+    required this.cellPaddingPx,
+    required this.colSpacingPx,
+
+    required this.rowSpacingPx,
+    required this.monthGapPx,
+    required this.monthLabelHeight,
+    required this.horizontalPadding,
+    required this.verticalPadding,
+    required this.radius,
+  });
 }

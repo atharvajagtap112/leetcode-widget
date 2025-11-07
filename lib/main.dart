@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+
 import 'package:leetcode_streak/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
@@ -9,7 +9,7 @@ import 'package:home_widget/home_widget.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
    final Uri? intialUri =await HomeWidget.initiallyLaunchedFromHomeWidget();
-    await MobileAds.instance.initialize();
+   ;
   final bool lauchedFromWidget= intialUri?.host=="refresh"; 
 
   runApp(LeetCodeApp(lauchedFromWidget: lauchedFromWidget));

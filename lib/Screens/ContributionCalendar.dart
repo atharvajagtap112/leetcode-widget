@@ -19,6 +19,7 @@ class ContributionCalendar extends StatelessWidget {
   final double monthLabelHeight;
   final double horizontalPadding;
   final double verticalPadding;
+  final double radius;
 
   // Rolling window settings (used when mode == rollingPastYear)
   final DateTime? endUtcOverride; // test hook
@@ -38,6 +39,7 @@ class ContributionCalendar extends StatelessWidget {
     this.verticalPadding = 4.0,
     this.endUtcOverride,
     this.daysBack = 365,
+    required this.radius,
   });
 
   @override
@@ -160,7 +162,7 @@ class ContributionCalendar extends StatelessWidget {
                 height: gridHeight + 2 * verticalPadding,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black26,
+                    color: const Color.fromARGB(0, 0, 0, 0),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Padding(
@@ -169,6 +171,7 @@ class ContributionCalendar extends StatelessWidget {
                       vertical: verticalPadding,
                     ),
                     child: _Grid(
+                      radius: radius,
                       columns: flattened,
                       rangeStart: rangeStartUtc,
                       rangeEnd: rangeEndUtc,
@@ -286,6 +289,7 @@ class _Grid extends StatelessWidget {
   final DateTime rangeStart;
   final DateTime rangeEnd;
   final LeetCodeData data;
+  final double radius;
 
   final double cellSizePx;
   final double cellPaddingPx;
@@ -295,6 +299,7 @@ class _Grid extends StatelessWidget {
   final Set<int> monthGapIndices;
 
   const _Grid({
+    required this.radius,
     required this.columns,
     required this.rangeStart,
     required this.rangeEnd,
@@ -319,6 +324,7 @@ class _Grid extends StatelessWidget {
       final col = columns[i];
       children.add(
         _WeekColumnMonthBounded(
+          radius: radius,
           weekSunday: col.sunday,
           segmentYear: col.segmentYear,
           segmentMonth: col.segmentMonth,
@@ -347,7 +353,7 @@ class _WeekColumnMonthBounded extends StatelessWidget {
   final DateTime weekSunday;
   final int segmentYear;
   final int segmentMonth;
-
+  final double radius; 
   final DateTime rangeStart;
   final DateTime rangeEnd;
 
@@ -364,6 +370,7 @@ class _WeekColumnMonthBounded extends StatelessWidget {
     required this.rangeStart,
     required this.rangeEnd,
     required this.data,
+    required this.radius,
     required this.cellSizePx,
     required this.cellPaddingPx,
     required this.rowSpacingPx,
@@ -390,7 +397,7 @@ class _WeekColumnMonthBounded extends StatelessWidget {
           height: cellSizePx,
           decoration: BoxDecoration(
             color: _bucketColor(contributions),
-            borderRadius: BorderRadius.circular(1),
+            borderRadius: BorderRadius.circular(radius),
           ),
         );
       } else {
@@ -449,7 +456,7 @@ class _MonthLabels extends StatelessWidget {
         child: Center(
           child: Text(
             months[s.month - 1],
-            style: const TextStyle(fontSize: 8, color: Colors.grey),
+            style: const TextStyle(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.w500),
           ),
         ),
       ));
