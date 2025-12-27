@@ -9,7 +9,6 @@ import 'package:home_widget/home_widget.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
    final Uri? intialUri =await HomeWidget.initiallyLaunchedFromHomeWidget();
-   ;
   final bool lauchedFromWidget= intialUri?.host=="refresh"; 
 
   runApp(LeetCodeApp(lauchedFromWidget: lauchedFromWidget));

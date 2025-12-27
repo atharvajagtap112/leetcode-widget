@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // MethodChannel for pinning
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+// import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:leetcode_streak/Config/HomeWidgetConfig.dart';
-import 'package:leetcode_streak/Config/adHelper.dart';
+// import 'package:leetcode_streak/Config/adHelper.dart';
 import 'package:leetcode_streak/Model/LeetcodeData.dart';
 import 'package:leetcode_streak/Screens/ContributionCalendar.dart';
 import 'package:leetcode_streak/Screens/username_Input.dart';
@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   LeetCodeData? _leetCodeData;
   bool _isLoading = false;
   String? _errorMessage;
-  BannerAd? bannerAd;
+  //BannerAd? bannerAd;
 
   // New: daysBack preference (default 365)
   int _daysBack = 365;
@@ -38,21 +38,21 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadPrefsAndMaybeFetch();
 
-    BannerAd(
-      size: AdSize.banner,
-      adUnitId: AdHelper.bannerAdUnitId,
-      request: const AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          bannerAd = ad as BannerAd;
-          setState(() {});
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          debugPrint('Ad load failed (code=${error.code} message=${error.message})');
-        },
-      ),
-    ).load();
+    // BannerAd(
+    //   size: AdSize.banner,
+    //   adUnitId: AdHelper.bannerAdUnitId,
+    //   request: const AdRequest(),
+    //   listener: BannerAdListener(
+    //     onAdLoaded: (ad) {
+    //       bannerAd = ad as BannerAd;
+    //       setState(() {});
+    //     },
+    //     onAdFailedToLoad: (ad, error) {
+    //       ad.dispose();
+    //       debugPrint('Ad load failed (code=${error.code} message=${error.message})');
+    //     },
+    //   ),
+    // ).load();
   }
 
   Future<void> _loadPrefsAndMaybeFetch() async {
@@ -87,26 +87,33 @@ class _HomeScreenState extends State<HomeScreen> {
       final data = await LeetCodeApi.fetchUserDataPastYear(username);
       setState(() {
         _leetCodeData = data;
+
+      
+
         _isLoading = false;
         _errorMessage = null;
 
-        if (bannerAd == null) {
-          BannerAd(
-            size: AdSize.banner,
-            adUnitId: AdHelper.bannerAdUnitId,
-            request: const AdRequest(),
-            listener: BannerAdListener(
-              onAdLoaded: (ad) {
-                bannerAd = ad as BannerAd;
-                setState(() {});
-              },
-              onAdFailedToLoad: (ad, error) {
-                ad.dispose();
-                debugPrint('Ad load failed (code=${error.code} message=${error.message})');
-              },
-            ),
-          ).load();
+        if (data == null) {
+          _errorMessage = 'User not found or error fetching data';
         }
+
+        // if (bannerAd == null) {
+        //   BannerAd(
+        //     size: AdSize.banner,
+        //     adUnitId: AdHelper.bannerAdUnitId,
+        //     request: const AdRequest(),
+        //     listener: BannerAdListener(
+        //       onAdLoaded: (ad) {
+        //         bannerAd = ad as BannerAd;
+        //         setState(() {});
+        //       },
+        //       onAdFailedToLoad: (ad, error) {
+        //         ad.dispose();
+        //         debugPrint('Ad load failed (code=${error.code} message=${error.message})');
+        //       },
+        //     ),
+        //   ).load();
+        // }
       });
 
       await _saveUsername(username);
@@ -224,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
             SizedBox(height: 8),
             Text(
-              'Long-press your home screen → Widgets → find “LeetCode Streak Widget” → drag it to your home screen.',
+              'Long-press your home screen → Widgets → find “LeetStreak Widget” → drag it to your home screen.',
               style: TextStyle(color: Colors.white70),
             ),
           ],
@@ -246,22 +253,22 @@ class _HomeScreenState extends State<HomeScreen> {
         automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF151A1E),
         elevation: 0,
-        title: const Text('LeetStreak'),
-      ),
+        title: const Text('LeetStreak', style: TextStyle(color: Colors.white),
+      )),
       body: Stack(
         children: [
           ListView(
             padding: EdgeInsets.zero,
             children: [
-              if (bannerAd != null)
-                Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: SizedBox(
-                    width: bannerAd!.size.width.toDouble(),
-                    height: bannerAd!.size.height.toDouble(),
-                    child: AdWidget(ad: bannerAd!),
-                  ),
-                ),
+              // if (bannerAd != null)
+              //   Padding(
+              //     padding: const EdgeInsets.all(10.0),
+              //     child: SizedBox(
+              //       width: bannerAd!.size.width.toDouble(),
+              //       height: bannerAd!.size.height.toDouble(),
+              //       child: AdWidget(ad: bannerAd!),
+              //     ),
+              //   ),
               
 
               // Username + Fetch
@@ -393,7 +400,6 @@ class _UsernameCard extends StatelessWidget {
   final Color cardColor;
 
   const _UsernameCard({
-    super.key,
     required this.controller,
     required this.onSubmit,
     required this.cardColor,
@@ -442,7 +448,6 @@ class _RangeSelectorCard extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   const _RangeSelectorCard({
-    super.key,
     required this.cardColor,
     required this.daysBack,
     required this.onChanged,
@@ -454,6 +459,7 @@ class _RangeSelectorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final is365 = daysBack >= 365;
     final is182 = daysBack == 182;
+    final is30 = daysBack == 30;
    
 
     Widget buildChip(String label, bool selected, VoidCallback onTap) {
@@ -486,7 +492,8 @@ class _RangeSelectorCard extends StatelessWidget {
             runSpacing: 6,
             children: [
               buildChip('1yr', is365, () => onChanged(365)),
-              buildChip('6m', is182, () => onChanged(182)),  
+              buildChip('6m', is182, () => onChanged(182)),
+              buildChip('1m', is30, () => onChanged(30))
         
             ],
           ),
@@ -506,7 +513,6 @@ class _StatsRow extends StatelessWidget {
   final Color cardColor;
 
   const _StatsRow({
-    super.key,
     required this.data,
     required this.cardColor,
   });
@@ -534,7 +540,6 @@ class _StatCard extends StatelessWidget {
   final Color color;
 
   const _StatCard({
-    super.key,
     required this.title,
     required this.value,
     required this.color,
@@ -568,7 +573,7 @@ class _StatCard extends StatelessWidget {
 class _FullBleedCalendar extends StatelessWidget {
   final Widget child;
 
-  const _FullBleedCalendar({super.key, required this.child});
+  const _FullBleedCalendar({required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -582,7 +587,6 @@ class _ErrorCard extends StatelessWidget {
   final Color cardColor;
 
   const _ErrorCard({
-    super.key,
     required this.message,
     required this.cardColor,
   });
